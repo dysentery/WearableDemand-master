@@ -25,13 +25,8 @@ import android.widget.TextView;
 import com.google.gson.Gson;
 
 import java.io.BufferedReader;
-import java.io.IOException;
 import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /****************/
 /************/
@@ -45,55 +40,7 @@ public class DemandActivity extends AppCompatActivity {
 
     /************************************************************/
     public static final String URL = "http://quandyfactory.com/insult/json";
-    public static String data;
-    private static String readUrl(String urlString) throws Exception {
-        BufferedReader reader = null;
-        Log.d (TAG, "readURL");
-        try {
-            URL url = new URL(urlString);
-            reader = new BufferedReader(new InputStreamReader(url.openStream()));
-            StringBuffer buffer = new StringBuffer();
-            int read;
-            char[] chars = new char[1024];
-            while ((read = reader.read(chars)) != -1)
-                buffer.append(chars, 0, read);
-
-            return buffer.toString();
-        } finally {
-            if (reader != null)
-                reader.close();
-        }
-    }
-    public class SimpleTask extends AsyncTask<String, Void, String> {
-        @Override
-        protected void onPreExecute() {
-            // Create Show ProgressBar
-            //Log.d(TAG, "good");
-        }
-
-        @Override
-        protected String doInBackground(String... urls) {
-            //android.os.Debug.waitForDebugger();
-            //
-            //String data;
-            InsultData msg;
-            String Result = "";
-            try {
-                data = readUrl("http://quandyfactory.com/insult/json");
-                msg = new Gson().fromJson(data, InsultData.class);
-                data = msg.getInsult();
-            } catch (Exception E) {
-                Log.d(TAG, E.toString());
-            }
-            return Result;
-        }
-
-        @Override
-        protected void onPostExecute(String JsonString) {
-            Log.d (TAG, "onPostExecute");
-        }
-    }
-        /************************************************************/
+    public static String insultData;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -101,10 +48,11 @@ public class DemandActivity extends AppCompatActivity {
         setContentView(R.layout.activity_demand);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
 
+        // Get initial insult
         new SimpleTask().execute(URL);
 
         setSupportActionBar(toolbar);
-            FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
+        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
 
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -146,7 +94,7 @@ public class DemandActivity extends AppCompatActivity {
                 new NotificationCompat.Builder(this)
                         .setContentTitle("Hello!")
                         .setContentText("Swipe left, hit reply and say your name.")
-                        .setSmallIcon(R.drawable.ic_launcher)
+                        .setSmallIcon(R.drawable.ic_launcher)//.wear_notofication)
                         .extend(wearableExtender)
                         .build();
         // Get the notification manager
@@ -163,8 +111,56 @@ public class DemandActivity extends AppCompatActivity {
         MessageReceiver messageReceiver = new MessageReceiver();
         LocalBroadcastManager.getInstance(this).
 
-        registerReceiver(messageReceiver, messageFilter);
+                registerReceiver(messageReceiver, messageFilter);
     }
+    private static String readUrl(String urlString) throws Exception {
+        BufferedReader reader = null;
+        Log.d (TAG, "readURL");
+        try {
+            URL url = new URL(urlString);
+            reader = new BufferedReader(new InputStreamReader(url.openStream()));
+            //StringBuffer buffer = new StringBuffer();
+            StringBuilder buffer = new StringBuilder();
+            int read;
+            char[] chars = new char[1024];
+            while ((read = reader.read(chars)) != -1)
+                buffer.append(chars, 0, read);
+
+            return buffer.toString();
+        } finally {
+            if (reader != null)
+                reader.close();
+        }
+    }
+    public class SimpleTask extends AsyncTask<String, Void, String> {
+        @Override
+        protected void onPreExecute() {
+            // Create Show ProgressBar
+            //Log.d(TAG, "good");
+        }
+
+        @Override
+        protected String doInBackground(String... urls) {
+            InsultData msg;
+            String Result = "";
+            try {
+                insultData = readUrl("http://quandyfactory.com/insult/json");
+                msg = new Gson().fromJson(insultData, InsultData.class);
+                insultData = msg.getInsult();
+            } catch (Exception E) {
+                Log.d(TAG, E.toString());
+            }
+            return Result;
+        }
+
+        @Override
+        protected void onPostExecute(String JsonString) {
+            Log.d (TAG, "onPostExecute");
+        }
+    }
+        /************************************************************/
+
+
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -198,13 +194,12 @@ public class DemandActivity extends AppCompatActivity {
             TextView demandView = (TextView) findViewById(R.id.demand_text);
             String demand = demandView.getText() + intent.getStringExtra("reply");
 
-            //String data = "Null";
-            new SimpleTask().execute(URL);
-
             Log.d (TAG, "this is an info message");
+            String str = getString(R.string.demand, demand ) + insultData;//data
+            demandView.setText( str );
 
-            demandView.setText(demand + " " + data);// msg.getInsult() );//msg.getInsult()
-           // glblName = demand;
+            // Get next insult
+            new SimpleTask().execute(URL);
         }
     }
 
