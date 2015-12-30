@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">WearableDemand</string>
+    <string name="action_settings">Settings</string>
+    <string name="reply_label">Reply</string>
+</resources>
