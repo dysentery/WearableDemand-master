@@ -8,6 +8,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.speech.tts.TextToSpeech;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v4.app.NotificationCompat;
@@ -20,24 +21,33 @@ import android.util.Log;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.EditText;
 import android.widget.TextView;
+import android.speech.tts.TextToSpeech;
 
 import com.google.gson.Gson;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.URL;
+import java.util.Locale;
 
 /****************/
 /************/
 
-public class DemandActivity extends AppCompatActivity {
+public class DemandActivity extends AppCompatActivity implements TextToSpeech.OnInitListener{
 
     public static final String ACTION_DEMAND = "com.androidweardocs.ACTION_DEMAND";
     public static final String EXTRA_MESSAGE = "com.androidweardocs.EXTRA_MESSAGE";
     public static final String EXTRA_VOICE_REPLY = "com.androidweardocs.EXTRA_VOICE_REPLY";
+
+    // Log
     private static final String TAG = "MyActivity";
 
+    // Speach
+    private TextToSpeech engine;
+    private String text;
+    //private EditText text;
     /************************************************************/
     public static final String URL = "http://quandyfactory.com/insult/json";
     public static String insultData;
@@ -46,7 +56,12 @@ public class DemandActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_demand);
+
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+
+        // Speach
+        text = "";
+        engine = new TextToSpeech(this, this);
 
         // Get initial insult
         new SimpleTask().execute(URL);
@@ -97,6 +112,7 @@ public class DemandActivity extends AppCompatActivity {
                         .setSmallIcon(R.drawable.ic_launcher)//.wear_notofication)
                         .extend(wearableExtender)
                         .build();
+
         // Get the notification manager
         NotificationManagerCompat notificationManager =
                 NotificationManagerCompat.from(this);
@@ -105,7 +121,6 @@ public class DemandActivity extends AppCompatActivity {
         int notificationId = 1;
         notificationManager.notify(notificationId, notification);
 
-
         // Register the local broadcast receiver for the users demand.
         IntentFilter messageFilter = new IntentFilter(Intent.ACTION_SEND);
         MessageReceiver messageReceiver = new MessageReceiver();
@@ -113,6 +128,23 @@ public class DemandActivity extends AppCompatActivity {
 
                 registerReceiver(messageReceiver, messageFilter);
     }
+    // Speech
+    public void speakText(String speechText) {
+        // String textContents = speechText;
+        ///speak() would work on if you have set minSDK version 21 or higher
+        engine.speak(speechText, TextToSpeech.QUEUE_FLUSH, null, null);
+
+
+    }
+    @Override
+    public void onInit(int i) {
+        if (i == TextToSpeech.SUCCESS) {
+            //Setting speech Language
+            engine.setLanguage(Locale.ENGLISH);
+            engine.setPitch(1);
+        }
+    }
+    // URL call
     private static String readUrl(String urlString) throws Exception {
         BufferedReader reader = null;
         Log.d (TAG, "readURL");
@@ -135,10 +167,10 @@ public class DemandActivity extends AppCompatActivity {
     public class SimpleTask extends AsyncTask<String, Void, String> {
         @Override
         protected void onPreExecute() {
-            // Create Show ProgressBar
             //Log.d(TAG, "good");
+            TextView demandView = (TextView) findViewById(R.id.demand_text);
+            demandView.setText("");
         }
-
         @Override
         protected String doInBackground(String... urls) {
             InsultData msg;
@@ -146,7 +178,7 @@ public class DemandActivity extends AppCompatActivity {
             try {
                 insultData = readUrl("http://quandyfactory.com/insult/json");
                 msg = new Gson().fromJson(insultData, InsultData.class);
-                insultData = msg.getInsult();
+                Result = insultData = msg.getInsult();
             } catch (Exception E) {
                 Log.d(TAG, E.toString());
             }
@@ -155,12 +187,13 @@ public class DemandActivity extends AppCompatActivity {
 
         @Override
         protected void onPostExecute(String JsonString) {
-            Log.d (TAG, "onPostExecute");
+
+            TextView demandView = (TextView) findViewById(R.id.demand_text);
+            demandView.setText(text.toLowerCase());
+            //Log.d (TAG, JsonString);
         }
     }
         /************************************************************/
-
-
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -168,7 +201,6 @@ public class DemandActivity extends AppCompatActivity {
         getMenuInflater().inflate(R.menu.menu_demand, menu);
         return true;
     }
-
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         // Handle action bar item clicks here. The action bar will
@@ -180,26 +212,29 @@ public class DemandActivity extends AppCompatActivity {
         if (id == R.id.action_settings) {
             return true;
         }
-
         return super.onOptionsItemSelected(item);
     }
-
     // Class to receive demand text from the wearable demand receiver
     public class MessageReceiver extends BroadcastReceiver {
-
         @Override
         public void onReceive(Context context, Intent intent) {
 
             // Display the received demand
             TextView demandView = (TextView) findViewById(R.id.demand_text);
-            String demand = demandView.getText() + intent.getStringExtra("reply");
+            String demand = intent.getStringExtra("reply");
 
-            Log.d (TAG, "this is an info message");
-            String str = getString(R.string.demand, demand ) + insultData;//data
-            demandView.setText( str );
+            Log.d(TAG, insultData );
 
-            // Get next insult
+           // String str = getString(R.string.demand, demand) + " " + insultData;
+            text = getString(R.string.demand, demand) + " " + insultData;
+            //demandView.setText( str );
+//            text = str;
+//            speakText(str);
+//            str="";
+
+            speakText(text);
             new SimpleTask().execute(URL);
+
         }
     }
 
