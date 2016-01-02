@@ -131,9 +131,9 @@ public class DemandActivity extends AppCompatActivity implements TextToSpeech.On
     // Speech
     public void speakText(String speechText) {
         // String textContents = speechText;
-        ///speak() would work on if you have set minSDK version 21 or higher
+        // speak() would work on if you have set minSDK version 21 or higher
         engine.speak(speechText, TextToSpeech.QUEUE_FLUSH, null, null);
-
+       // engine.shutdown();
 
     }
     @Override
