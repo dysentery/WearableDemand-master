@@ -6,6 +6,10 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Matrix;
+import android.graphics.drawable.BitmapDrawable;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.speech.tts.TextToSpeech;
@@ -17,13 +21,13 @@ import android.support.v4.app.RemoteInput;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.widget.EditText;
 import android.widget.TextView;
-import android.speech.tts.TextToSpeech;
+import android.widget.Toast;
 
 import com.google.gson.Gson;
 
@@ -42,32 +46,55 @@ public class DemandActivity extends AppCompatActivity implements TextToSpeech.On
     public static final String EXTRA_VOICE_REPLY = "com.androidweardocs.EXTRA_VOICE_REPLY";
 
     // Log
-    private static final String TAG = "MyActivity";
+    private static final String TAG = "demand_activity";
 
     // Speach
-    private TextToSpeech engine;
-    private String text;
-    //private EditText text;
-    /************************************************************/
+    private static TextToSpeech engine;
+    private static String text = "";
+    private static String demand = "";
     public static final String URL = "http://quandyfactory.com/insult/json";
     public static String insultData;
-
+    /************************************************************/
+    private static Toolbar toolbar;
+    private static FloatingActionButton fab;
+    private static Intent demandIntent;
+    private static PendingIntent demandPendingIntent;
+    private static String replyLabel;
+    private static RemoteInput remoteInput;
+    private static NotificationCompat.Action replyAction;
+    private static NotificationCompat.WearableExtender wearableExtender;
+    private static Notification notification;
+    private static NotificationManagerCompat notificationManager;
+    private static int notificationId;
+    private static IntentFilter messageFilter;
+    private static MessageReceiver messageReceiver;
+    /****************************/
+    BitmapDrawable flip(BitmapDrawable d, Context context)
+    {
+        Matrix m = new Matrix();
+        m.preScale(-1, 1);
+        Bitmap src = d.getBitmap();
+        Bitmap dst = Bitmap.createBitmap(src, 0, 0, src.getWidth(), src.getHeight(), m, false);
+        dst.setDensity(DisplayMetrics.DENSITY_DEFAULT);
+        return new BitmapDrawable(context.getResources(), dst);
+    }
+    /*********************************************************************************************/
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_demand);
 
-        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
-
         // Speach
-        text = "";
         engine = new TextToSpeech(this, this);
 
-        // Get initial insult
+        //Log.d(TAG, "*------------------- onCreate ------------------------ *");
+        // Get initial insult from url
         new SimpleTask().execute(URL);
 
+        toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
-        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
+
+        fab = (FloatingActionButton) findViewById(R.id.fab);
 
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -78,34 +105,44 @@ public class DemandActivity extends AppCompatActivity implements TextToSpeech.On
         });
 
         // Create an Intent for the demand
-        Intent demandIntent = new Intent(this, DemandIntentReceiver.class)
+        demandIntent = new Intent(this, DemandIntentReceiver.class)
                 .putExtra(EXTRA_MESSAGE, "Reply icon selected.")
                 .setAction(ACTION_DEMAND);
 
         // Create a pending intent using the local broadcast receiver
-        PendingIntent demandPendingIntent =
+        demandPendingIntent =
                 PendingIntent.getBroadcast(this, 0, demandIntent, 0);
 
         // Create RemoteInput object for a voice reply (demand)
-        String replyLabel = getResources().getString(R.string.app_name);
-        RemoteInput remoteInput = new RemoteInput.Builder(EXTRA_VOICE_REPLY)
+        replyLabel = getResources().getString(R.string.app_name);
+        remoteInput = new RemoteInput.Builder(EXTRA_VOICE_REPLY)
                 .setLabel(replyLabel)
                 .build();
 
         // Create a wearable action
-        NotificationCompat.Action replyAction =
+        replyAction =
                 new NotificationCompat.Action.Builder(R.drawable.ic_reply_icon,
                         getString(R.string.reply_label), demandPendingIntent)
                         .addRemoteInput(remoteInput)
                         .build();
 
+        Bitmap bitmap;
+        bitmap  = BitmapFactory.decodeResource(getResources(), R.drawable.cheeky_monkey_hi_hi_green);//shakespearean);
+        //bitmap = Bitmap.createScaledBitmap(bitmap, (int)(bitmap.getWidth()*1.1), (int)(bitmap.getHeight()*1.1), true);
+        Bitmap rescaledBitmap = Bitmap.createScaledBitmap(bitmap, (400), (370), true);
+        BitmapDrawable bitmapdrawable = new BitmapDrawable(getResources(), rescaledBitmap);
+        BitmapDrawable flippedBitmap = flip(bitmapdrawable, getApplicationContext());
         // Create a wearable extender for a notification
-        NotificationCompat.WearableExtender wearableExtender =
+        wearableExtender =
                 new NotificationCompat.WearableExtender()
-                        .addAction(replyAction);
+                        .addAction(replyAction)
+                        //.setBackground(BitmapFactory.decodeResource(getResources(),
+                        //        R.drawable.cheeky_monkey_th));//.build(
+                        .setBackground(flippedBitmap.getBitmap());
+                        //.setContentIcon(R.drawable.cheeky_monkey_th);
 
         // Create a notification and extend it for the wearable
-        Notification notification =
+        notification =
                 new NotificationCompat.Builder(this)
                         .setContentTitle("Hello!")
                         .setContentText("Swipe left, hit reply and say your name.")
@@ -114,27 +151,33 @@ public class DemandActivity extends AppCompatActivity implements TextToSpeech.On
                         .build();
 
         // Get the notification manager
-        NotificationManagerCompat notificationManager =
+        notificationManager =
                 NotificationManagerCompat.from(this);
 
         // Dispatch the extended notification
-        int notificationId = 1;
+        notificationId = 1;
         notificationManager.notify(notificationId, notification);
 
         // Register the local broadcast receiver for the users demand.
-        IntentFilter messageFilter = new IntentFilter(Intent.ACTION_SEND);
-        MessageReceiver messageReceiver = new MessageReceiver();
+        messageFilter = new IntentFilter(Intent.ACTION_SEND);
+        messageReceiver = new MessageReceiver();
         LocalBroadcastManager.getInstance(this).
-
                 registerReceiver(messageReceiver, messageFilter);
+
+        if (getResources().getDisplayMetrics().widthPixels > getResources().getDisplayMetrics().
+        heightPixels) {
+            Toast.makeText(this, "Screen switched to Landscape mode", Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(this, "Screen switched to Portrait mode", Toast.LENGTH_SHORT).show();
+        }
+
+        TextView demandView = (TextView) findViewById(R.id.demand_text);
+        demandView.setText( text );
     }
     // Speech
     public void speakText(String speechText) {
-        // String textContents = speechText;
         // speak() would work on if you have set minSDK version 21 or higher
         engine.speak(speechText, TextToSpeech.QUEUE_FLUSH, null, null);
-       // engine.shutdown();
-
     }
     @Override
     public void onInit(int i) {
@@ -147,11 +190,10 @@ public class DemandActivity extends AppCompatActivity implements TextToSpeech.On
     // URL call
     private static String readUrl(String urlString) throws Exception {
         BufferedReader reader = null;
-        Log.d (TAG, "readURL");
         try {
             URL url = new URL(urlString);
             reader = new BufferedReader(new InputStreamReader(url.openStream()));
-            //StringBuffer buffer = new StringBuffer();
+
             StringBuilder buffer = new StringBuilder();
             int read;
             char[] chars = new char[1024];
@@ -167,18 +209,19 @@ public class DemandActivity extends AppCompatActivity implements TextToSpeech.On
     public class SimpleTask extends AsyncTask<String, Void, String> {
         @Override
         protected void onPreExecute() {
-            //Log.d(TAG, "good");
+
             TextView demandView = (TextView) findViewById(R.id.demand_text);
-            demandView.setText("");
+            demandView.setText( text );
+            speakText(text);
         }
         @Override
         protected String doInBackground(String... urls) {
             InsultData msg;
             String Result = "";
             try {
-                insultData = readUrl("http://quandyfactory.com/insult/json");
-                msg = new Gson().fromJson(insultData, InsultData.class);
+                msg = new Gson().fromJson(readUrl("http://quandyfactory.com/insult/json"), InsultData.class);
                 Result = insultData = msg.getInsult();
+                Log.d (TAG, "readURL");
             } catch (Exception E) {
                 Log.d(TAG, E.toString());
             }
@@ -186,14 +229,11 @@ public class DemandActivity extends AppCompatActivity implements TextToSpeech.On
         }
 
         @Override
-        protected void onPostExecute(String JsonString) {
+        protected void onPostExecute(String rtnInsult) {
 
-            TextView demandView = (TextView) findViewById(R.id.demand_text);
-            demandView.setText(text.toLowerCase());
-            //Log.d (TAG, JsonString);
         }
     }
-        /************************************************************/
+    /************************************************************/
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -218,24 +258,15 @@ public class DemandActivity extends AppCompatActivity implements TextToSpeech.On
     public class MessageReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
-
-            // Display the received demand
-            TextView demandView = (TextView) findViewById(R.id.demand_text);
+            // Trigger next insult url read and only then trigger speech and text display
             String demand = intent.getStringExtra("reply");
 
-            Log.d(TAG, insultData );
+            //insultData = " " + insultData;
+            text = getString(R.string.demand, demand ) + " " + insultData;
+            text = text.toUpperCase().charAt(0) + text.substring(1);
 
-           // String str = getString(R.string.demand, demand) + " " + insultData;
-            text = getString(R.string.demand, demand) + " " + insultData;
-            //demandView.setText( str );
-//            text = str;
-//            speakText(str);
-//            str="";
-
-            speakText(text);
+            // Get next insult
             new SimpleTask().execute(URL);
-
         }
     }
-
 }

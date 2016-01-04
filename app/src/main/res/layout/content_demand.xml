@@ -13,7 +13,7 @@
     android:orientation="vertical">
 
     <TextView
-        android:text="@string/intro_text"
+        android:text="@string/handheld_line1"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         />
@@ -23,7 +23,6 @@
         android:text=""
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:elegantTextHeight="false"
-        />
+        android:textSize="32sp" />
 
 </LinearLayout>
